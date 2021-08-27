@@ -1,10 +1,11 @@
 from subprocess import check_call
 import numpy as np
+from functools import partial
 import bpy
 bl_info = {
     "name": "max color picker",
     "author": "1C0D",
-    "version": (1, 0, 0),
+    "version": (1, 0, 1),
     "blender": (2, 93, 0),
     "location": "on a property color",
     "description": "ctrl+E on a color",
@@ -27,56 +28,69 @@ except ImportError:
     from PIL import Image, ImageGrab
 
 
+def to_srgb(a):
+    gamma = 2.237 #log(0.27,142/255)
+    b = ((a / 255) ** gamma)
+
+    return b
+
 def checkColor(x, y):
-    zone = 2  # 4 pixels
+    zone = 1
     bbox = (x, y, x+zone, y+zone)
+    ImageGrab.grab = partial(ImageGrab.grab, all_screens=True)
     im = ImageGrab.grab(bbox=bbox)
-    rgba = im.convert('RGBA')
-    tot = []
-    for i in range(zone):
-        for j in range(zone):
-            tot.append(list(rgba.getpixel((i, j))))
-    tot = np.array(tot)
-    global res
-    res = list(np.sum(tot, 0)/(zone*2)/255)
+    rgb = im.convert('RGB')
+    tot = list(rgb.getpixel((0, 0)))
+    print('tot', tot)
+
+    for i,e in enumerate(tot):
+        tot[i]=to_srgb(e)
+    tot.append(1)
+    
+    
+    exec(f'{value} = {tot}')
 
 
 def on_click(x, y, button, pressed):
 
     if pressed:
-        checkColor(x, y)
+        try:
+            checkColor(x, y)
+        except Exception as e:
+            print(e)
 
     else:
-        print('finished!!')
         # Stop listener
         return False
 
 
-def on_scroll(x, y, dx, dy):
-    print('Scrolled {0}'.format((x, y)))
+# def on_scroll(x, y, dx, dy):
+    # print('Scrolled {0}'.format((x, y)))
 
 
 class Max_OT_eye_dropper(bpy.types.Operator):
     bl_idname = "max.eye_dropper"
     bl_label = "max eye dropper"
+    
+    @classmethod
+    def poll(cls, context):
+        return bpy.ops.ui.copy_data_path_button.poll()  
 
     def execute(self, context):
 
         bpy.ops.ui.copy_data_path_button(full_path=True)
+        global value
         value = bpy.context.window_manager.clipboard
-        print("value0", value)  # Dbg
+
         bpy.context.window.cursor_set("EYEDROPPER")
 
         # Collect events until released
         with mouse.Listener(
                 on_click=on_click,
-                on_scroll=on_scroll) as listener:
+                # on_scroll=on_scroll,
+                ) as listener:
             listener.join()
-
-        exec(f'{value} = {res}')
-        print("value", value)  # Dbg
-        print("res", res)  # Dbg
-
+        bpy.context.window.cursor_set("DEFAULT")
         return {'FINISHED'}
 
 
