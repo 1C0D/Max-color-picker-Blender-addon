@@ -1,11 +1,11 @@
-from subprocess import check_call
+from subprocess import run
 import numpy as np
 from functools import partial
 import bpy
 bl_info = {
     "name": "max color picker",
     "author": "1C0D",
-    "version": (1, 0, 1),
+    "version": (1, 0, 2),
     "blender": (2, 93, 0),
     "location": "on a property color",
     "description": "ctrl+E on a color",
@@ -14,25 +14,23 @@ bl_info = {
 
 
 try:
-    from pynput import mouse
+    from PIL import Image, ImageGrab
 except ImportError:
     pybin = bpy.app.binary_path_python
-    check_call([pybin, '-m', 'pip', 'install', 'pynput'])
-    from pynput import mouse
+    run([pybin, '-m', 'pip', 'install', 'pillow', "--ignore-installed"])
+    from PIL import Image, ImageGrab
 
 try:
-    from PIL import Image, ImageGrab
+    from pynput import mouse
 except ImportError:
     pybin = bpy.app.binary_path_python
-    check_call([pybin, '-m', 'pip', 'install', 'pillow'])
-    from PIL import Image, ImageGrab
-
+    run([pybin, "-m", "pip", "install", "pynput", "--ignore-installed"])
+    from pynput import mouse
 
 def to_srgb(a):
-    gamma = 2.237 #log(0.27,142/255)
-    b = ((a / 255) ** gamma)
+    gamma = 2.237  # log(0.27,142/255)
+    return ((a / 255) ** gamma)
 
-    return b
 
 def checkColor(x, y):
     zone = 1
@@ -43,11 +41,10 @@ def checkColor(x, y):
     tot = list(rgb.getpixel((0, 0)))
     print('tot', tot)
 
-    for i,e in enumerate(tot):
-        tot[i]=to_srgb(e)
+    for i, e in enumerate(tot):
+        tot[i] = to_srgb(e)
     tot.append(1)
-    
-    
+
     exec(f'{value} = {tot}')
 
 
@@ -71,10 +68,10 @@ def on_click(x, y, button, pressed):
 class Max_OT_eye_dropper(bpy.types.Operator):
     bl_idname = "max.eye_dropper"
     bl_label = "max eye dropper"
-    
+
     @classmethod
     def poll(cls, context):
-        return bpy.ops.ui.copy_data_path_button.poll()  
+        return bpy.ops.ui.copy_data_path_button.poll()
 
     def execute(self, context):
 
@@ -88,7 +85,7 @@ class Max_OT_eye_dropper(bpy.types.Operator):
         with mouse.Listener(
                 on_click=on_click,
                 # on_scroll=on_scroll,
-                ) as listener:
+        ) as listener:
             listener.join()
         bpy.context.window.cursor_set("DEFAULT")
         return {'FINISHED'}
